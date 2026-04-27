@@ -88,8 +88,11 @@ train: ## Run training (Phase 4).
 	$(PY) scripts/run_training.py
 
 .PHONY: eval
-eval: ## Run evaluation harness (Phase 3+).
-	$(PY) scripts/run_eval.py
+eval: ## Run baseline eval. Use BASELINE=lexrank|textrank DATASET=v1 SPLIT=test.
+	$(PY) scripts/run_eval.py \
+	  --baseline $(or $(BASELINE),lexrank) \
+	  --dataset  $(or $(DATASET),v1) \
+	  --split    $(or $(SPLIT),test)
 
 # --- Services -------------------------------------------------------------
 .PHONY: api

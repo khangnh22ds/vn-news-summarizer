@@ -128,6 +128,8 @@ module = [
     "readability.*",
     "apscheduler.*",
     "tldextract.*",
+    "sklearn.*",
+    "mlflow.*",
 ]
 ignore_missing_imports = true
 
@@ -136,6 +138,7 @@ ignore_missing_imports = true
 minversion = "8.0"
 testpaths = ["tests", "packages"]
 asyncio_mode = "auto"
+pythonpath = ["scripts"]
 addopts = [
     "-q",
     "--strict-markers",
