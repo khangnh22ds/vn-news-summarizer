@@ -146,6 +146,10 @@ filterwarnings = [
     "error",
     "ignore::DeprecationWarning:google.*",
     "ignore::DeprecationWarning:transformers.*",
+    "ignore::DeprecationWarning:simhash.*",
+    "ignore::SyntaxWarning:simhash.*",
+    "ignore:invalid escape sequence:DeprecationWarning",
+    "ignore:invalid escape sequence:SyntaxWarning",
 ]
 
 # ------------------------------------------------------------- coverage ---
