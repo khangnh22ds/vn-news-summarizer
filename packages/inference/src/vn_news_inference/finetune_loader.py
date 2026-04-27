@@ -31,6 +31,13 @@ class GenerationConfig:
     no_repeat_ngram_size: int = 3
     length_penalty: float = 1.0
     early_stopping: bool = True
+    batch_size: int = 8
+    """Mini-batch size for :meth:`ViT5Summarizer.summarize_batch`.
+
+    Beam search with ``num_beams=4`` over 1024-token inputs blows up VRAM
+    quickly, so the eval CLI feeds articles in chunks of this size. 8 is
+    safe on a T4 (16 GB); bump it for larger GPUs.
+    """
 
 
 def _is_adapter_dir(path: Path) -> bool:
@@ -114,26 +121,39 @@ class ViT5Summarizer:
         decoded = tokenizer.batch_decode(outputs, skip_special_tokens=True)
         return str(decoded[0]) if decoded else ""
 
-    def summarize_batch(self, texts: list[str]) -> list[str]:
-        """Vectorized form of :meth:`summarize`."""
+    def summarize_batch(self, texts: list[str], *, batch_size: int | None = None) -> list[str]:
+        """Vectorized form of :meth:`summarize`, with mini-batching.
+
+        ``batch_size`` defaults to :attr:`GenerationConfig.batch_size`.
+        Inputs are processed in chunks so beam search doesn't try to
+        materialize one giant ``(N, max_input_length)`` padded tensor — at
+        ``num_beams=4`` and ``max_new_tokens=128`` even modest N would OOM.
+        """
         if not texts:
             return []
+        chunk = batch_size if batch_size and batch_size > 0 else self.generation.batch_size
+        chunk = max(chunk, 1)
         model, tokenizer = self._ensure_loaded()
-        inputs = tokenizer(
-            texts,
-            max_length=self.generation.max_input_length,
-            truncation=True,
-            padding=True,
-            return_tensors="pt",
-        )
-        if self.device:
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=self.generation.max_new_tokens,
-            num_beams=self.generation.num_beams,
-            no_repeat_ngram_size=self.generation.no_repeat_ngram_size,
-            length_penalty=self.generation.length_penalty,
-            early_stopping=self.generation.early_stopping,
-        )
-        return [str(s) for s in tokenizer.batch_decode(outputs, skip_special_tokens=True)]
+        out: list[str] = []
+        for i in range(0, len(texts), chunk):
+            sub = texts[i : i + chunk]
+            inputs = tokenizer(
+                sub,
+                max_length=self.generation.max_input_length,
+                truncation=True,
+                padding=True,
+                return_tensors="pt",
+            )
+            if self.device:
+                inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=self.generation.max_new_tokens,
+                num_beams=self.generation.num_beams,
+                no_repeat_ngram_size=self.generation.no_repeat_ngram_size,
+                length_penalty=self.generation.length_penalty,
+                early_stopping=self.generation.early_stopping,
+            )
+            decoded = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            out.extend(str(s) for s in decoded)
+        return out
