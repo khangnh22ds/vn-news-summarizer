@@ -76,8 +76,12 @@ crawl-schedule: ## Run the crawler as a long-lived scheduler (every 30 min).
 	$(UV) run python scripts/run_crawler.py --schedule
 
 .PHONY: label
-label: ## Run LLM labeling worker (Phase 2).
-	$(PY) scripts/run_labeler.py
+label: ## Run LLM labeling worker (Phase 2). Use LIMIT=N to bound the batch.
+	$(PY) scripts/run_labeler.py --limit $(or $(LIMIT),50)
+
+.PHONY: label-export
+label-export: ## Export QC-passed labels to data/datasets/<NAME>. Use NAME=v1.
+	$(PY) scripts/run_labeler.py --no-label --export $(or $(NAME),v1)
 
 .PHONY: train
 train: ## Run training (Phase 4).
