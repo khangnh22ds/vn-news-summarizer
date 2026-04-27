@@ -23,7 +23,7 @@ from vn_news_common.time_utils import utcnow
 
 from .prompt import LabelOutput, Prompt, parse_label_json
 from .qc import QcResult, run_qc
-from .vertex_client import VertexLabeler, VertexLLMError
+from .vertex_client import VertexLabeler, VertexLLMError, VertexTransientError
 
 
 @dataclass(slots=True)
@@ -157,7 +157,10 @@ async def label_batch(
         try:
             raw = labeler.generate(system=prompt.system, user=user_msg)
             output = parse_label_json(raw)
-        except (VertexLLMError, ValueError) as exc:
+        except (VertexLLMError, VertexTransientError, ValueError) as exc:
+            # ``VertexTransientError`` is re-raised by tenacity after the
+            # 5-attempt retry budget is exhausted; we must not let it bubble
+            # up and abort processing of the remaining articles.
             logger.warning("LLM error on article {}: {}", art.id, exc)
             stats.llm_errors += 1
             continue

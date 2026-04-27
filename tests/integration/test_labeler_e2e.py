@@ -14,6 +14,7 @@ from vn_news_labeling import (
     GenerationParams,
     Prompt,
     VertexLabeler,
+    VertexTransientError,
     build_dataset_version,
     label_batch,
 )
@@ -117,6 +118,46 @@ async def test_label_batch_persists_good_and_bad_labels(db_session: AsyncSession
     statuses = {a.status for a in arts}
     assert ArticleStatus.SUMMARIZED in statuses
     assert ArticleStatus.CLEANED in statuses
+
+
+@pytest.mark.asyncio
+async def test_transient_error_does_not_abort_batch(db_session: AsyncSession) -> None:
+    """A persistent transient on one article must not skip the rest."""
+    await _seed(db_session, n=3)
+
+    prompt = Prompt.from_yaml(PROMPT_PATH)
+    prompt.qc.min_words = 10
+    prompt.qc.max_words = 80
+    prompt.qc.min_sentences = 1
+    prompt.qc.max_sentences = 5
+
+    calls = {"n": 0}
+
+    labeler = VertexLabeler(
+        project=None,
+        location="asia-southeast1",
+        model_name="gemini-2.0-flash-001",
+        params=GenerationParams(),
+        override_callable=lambda *_: GOOD_LABEL,
+    )
+
+    # Replace ``generate`` to bypass the tenacity retry budget — we want to
+    # simulate the error escaping after retry exhaustion in a single call.
+    def first_fails_then_good(*, system: str, user: str) -> str:
+        del system, user
+        calls["n"] += 1
+        if calls["n"] == 1:
+            msg = "rate limit exhausted"
+            raise VertexTransientError(msg)
+        return GOOD_LABEL
+
+    labeler.generate = first_fails_then_good  # type: ignore[method-assign]
+
+    stats = await label_batch(prompt=prompt, labeler=labeler, limit=10)
+    assert stats.requested == 3
+    assert stats.llm_errors == 1
+    assert stats.labeled == 2
+    assert stats.qc_passed == 2
 
 
 @pytest.mark.asyncio
