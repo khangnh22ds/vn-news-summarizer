@@ -21,12 +21,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+import vertexai
 from loguru import logger
 from tenacity import (
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
+)
+from vertexai.generative_models import (
+    Content,
+    GenerationConfig,
+    GenerativeModel,
+    Part,
 )
 
 
@@ -92,11 +99,6 @@ class VertexLabeler:
         if not self.project:
             msg = "GOOGLE_CLOUD_PROJECT is not set; cannot init Vertex AI"
             raise VertexLLMError(msg)
-        # Lazy import — avoids loading the (heavy) google-cloud-aiplatform
-        # SDK in unit tests that use the override callable.
-        import vertexai
-        from vertexai.generative_models import GenerativeModel
-
         vertexai.init(project=self.project, location=self.location)
         self._model = GenerativeModel(self.model_name)
         logger.info(
@@ -123,8 +125,6 @@ class VertexLabeler:
             return self._override(system, user)
 
         model = self._ensure_model()
-        from vertexai.generative_models import GenerationConfig
-
         gen_config = GenerationConfig(
             temperature=self.params.temperature,
             top_p=self.params.top_p,
@@ -134,8 +134,6 @@ class VertexLabeler:
         try:
             # Gemini supports system_instruction at model construction or
             # per-call; per-call keeps the model object thread-safe-ish.
-            from vertexai.generative_models import Content, Part
-
             request = [
                 Content(role="user", parts=[Part.from_text(f"{system}\n\n{user}")]),
             ]
