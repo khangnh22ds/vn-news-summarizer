@@ -91,6 +91,24 @@ def test_run_eval_cli_missing_dataset_returns_2(tmp_path: Path) -> None:
     assert rc == 2
 
 
+def test_run_eval_cli_vit5_without_model_path_returns_2(tmp_path: Path) -> None:
+    _make_dataset(tmp_path, name="v1")
+    rc = run_eval.main(
+        [
+            "--baseline",
+            "vit5",
+            "--dataset",
+            "v1",
+            "--dataset-root",
+            str(tmp_path),
+            "--split",
+            "test",
+            "--no-mlflow",
+        ]
+    )
+    assert rc == 2
+
+
 def test_run_eval_cli_with_limit_truncates(tmp_path: Path) -> None:
     _make_dataset(tmp_path, name="v1")
     buf = io.StringIO()

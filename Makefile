@@ -84,15 +84,20 @@ label-export: ## Export QC-passed labels to data/datasets/<NAME>. Use NAME=v1.
 	$(PY) scripts/run_labeler.py --no-label --export $(or $(NAME),v1)
 
 .PHONY: train
-train: ## Run training (Phase 4).
-	$(PY) scripts/run_training.py
+train: ## Fine-tune ViT5 + LoRA. Use CONFIG=path DATASET=v1 EPOCHS=4 OUTPUT=models/...
+	$(PY) scripts/run_training.py \
+	  --config $(or $(CONFIG),configs/training/vit5_base_v1.yaml) \
+	  $(if $(DATASET),--dataset $(DATASET),) \
+	  $(if $(EPOCHS),--epochs $(EPOCHS),) \
+	  $(if $(OUTPUT),--output-dir $(OUTPUT),)
 
 .PHONY: eval
-eval: ## Run baseline eval. Use BASELINE=lexrank|textrank DATASET=v1 SPLIT=test.
+eval: ## Eval. Use BASELINE=lexrank|textrank|vit5 DATASET=v1 SPLIT=test [MODEL=path].
 	$(PY) scripts/run_eval.py \
 	  --baseline $(or $(BASELINE),lexrank) \
 	  --dataset  $(or $(DATASET),v1) \
-	  --split    $(or $(SPLIT),test)
+	  --split    $(or $(SPLIT),test) \
+	  $(if $(MODEL),--model-path $(MODEL),)
 
 # --- Services -------------------------------------------------------------
 .PHONY: api

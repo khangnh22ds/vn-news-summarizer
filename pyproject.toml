@@ -130,6 +130,10 @@ module = [
     "tldextract.*",
     "sklearn.*",
     "mlflow.*",
+    "peft.*",
+    "transformers.*",
+    "datasets.*",
+    "accelerate.*",
 ]
 ignore_missing_imports = true
 

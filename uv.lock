@@ -3753,6 +3753,7 @@ version = "0.1.0"
 source = { editable = "packages/inference" }
 dependencies = [
     { name = "google-cloud-aiplatform" },
+    { name = "peft" },
     { name = "sentencepiece" },
     { name = "tenacity" },
     { name = "torch" },
@@ -3763,6 +3764,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "google-cloud-aiplatform", specifier = ">=1.74" },
+    { name = "peft", specifier = ">=0.13" },
     { name = "sentencepiece", specifier = ">=0.2" },
     { name = "tenacity", specifier = ">=9.0" },
     { name = "torch", specifier = ">=2.4" },

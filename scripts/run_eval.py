@@ -36,13 +36,25 @@ from vn_news_training import (
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="run_eval",
-        description="Evaluate a summarization baseline on a dataset version.",
+        description="Evaluate a summarization baseline / fine-tuned model on a dataset version.",
     )
     p.add_argument(
         "--baseline",
-        choices=["lexrank", "textrank"],
+        choices=["lexrank", "textrank", "vit5"],
         default="lexrank",
-        help="Which extractive baseline to run (default: lexrank).",
+        help=(
+            "Which model to run. 'lexrank'/'textrank' are the extractive "
+            "baselines; 'vit5' loads the fine-tuned ViT5 / LoRA checkpoint "
+            "given by --model-path."
+        ),
+    )
+    p.add_argument(
+        "--model-path",
+        default=None,
+        help=(
+            "Path to a ViT5 / LoRA checkpoint. Required when --baseline=vit5. "
+            "May also be a base model name like 'VietAI/vit5-base'."
+        ),
     )
     p.add_argument(
         "--dataset",
@@ -98,6 +110,16 @@ def _summarize_all(examples: list[Example], cfg: SummarizerConfig) -> tuple[list
     return preds, refs
 
 
+def _summarize_all_vit5(examples: list[Example], model_path: str) -> tuple[list[str], list[str]]:
+    """Run the fine-tuned ViT5 / LoRA summarizer over a list of examples."""
+    from vn_news_inference import ViT5Summarizer
+
+    summarizer = ViT5Summarizer(model_path)
+    preds = summarizer.summarize_batch([ex.content_text for ex in examples])
+    refs = [ex.summary for ex in examples]
+    return preds, refs
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     logging.basicConfig(
@@ -120,12 +142,18 @@ def main(argv: list[str] | None = None) -> int:
         log.warning("no examples — nothing to evaluate")
         return 0
 
-    cfg = SummarizerConfig(
-        name=cast(BaselineName, args.baseline),
-        max_words=args.max_words,
-        max_sentences=args.max_sentences,
-    )
-    preds, refs = _summarize_all(examples, cfg)
+    if args.baseline == "vit5":
+        if not args.model_path:
+            log.error("--model-path is required when --baseline=vit5")
+            return 2
+        preds, refs = _summarize_all_vit5(examples, args.model_path)
+    else:
+        cfg = SummarizerConfig(
+            name=cast(BaselineName, args.baseline),
+            max_words=args.max_words,
+            max_sentences=args.max_sentences,
+        )
+        preds, refs = _summarize_all(examples, cfg)
     result = evaluate_predictions(preds, refs, use_bertscore=args.bertscore)
     metrics = result.to_dict()
 
