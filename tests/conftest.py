@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 import os
+
+# Force the regex fallback in :mod:`vn_news_training.baselines.tokenizer`
+# during the test suite. ``underthesea`` ships C extensions that segfault
+# on interpreter shutdown when imported and torn down repeatedly, which
+# would otherwise turn pytest's exit code into 139.
+os.environ.setdefault("VN_NEWS_USE_UNDERTHESEA", "0")
+
 from collections.abc import AsyncIterator
 from pathlib import Path
 
