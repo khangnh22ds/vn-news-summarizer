@@ -7,6 +7,8 @@ minutes) and ``coalesce=True`` so missed runs don't pile up.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
@@ -35,6 +37,9 @@ def make_scheduler(
         id="periodic_crawl",
         max_instances=1,
         coalesce=True,
-        next_run_time=None,
+        # Run once immediately on startup, then every ``interval_minutes``.
+        # Passing ``next_run_time=None`` would create a *paused* job; omitting
+        # it would defer the first run by ``interval_minutes``.
+        next_run_time=datetime.now(UTC),
     )
     return sched

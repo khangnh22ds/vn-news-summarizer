@@ -99,7 +99,7 @@ async def _existing_url_hashes(session: AsyncSession, hashes: list[str]) -> set[
 # ---------------------------------------------------------------- per source
 
 
-async def _crawl_one_source(
+async def _crawl_one_source(  # noqa: PLR0912, PLR0915
     *,
     src: SourceConfig,
     cfg: SourcesConfig,
@@ -171,13 +171,20 @@ async def _crawl_one_source(
                 cfg=cfg,
             )
             session.add(article)
+            # Wrap each flush in a SAVEPOINT so an IntegrityError (e.g. a
+            # racing duplicate URL slipping past the L1/seen_urls pre-checks)
+            # only rolls back this single row, not every article we've
+            # already flushed in this source's session.
             try:
-                await session.flush()
+                async with session.begin_nested():
+                    await session.flush()
                 stats.inserted += 1
             except IntegrityError:
                 logger.warning("integrity skip {}", c.url)
-                await session.rollback()
                 stats.skipped_seen += 1
+                # Detach the rejected row so the next flush doesn't retry it.
+                if article in session:
+                    session.expunge(article)
 
     return stats
 
