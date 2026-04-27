@@ -10,6 +10,7 @@ behind an explicit flag and only invoked when the caller asks for it.
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
@@ -94,9 +95,11 @@ def compute_bertscore(
     if len(predictions) != len(references):
         msg = "predictions and references length mismatch"
         raise ValueError(msg)
-    from bert_score import score
-
-    _, _, f1 = score(
+    # Heavy lazy import: bert_score pulls torch + transformers + a ~2 GB
+    # model on first call. importlib keeps it out of the module-level
+    # graph (and dodges ruff's PLC0415).
+    bs_mod = importlib.import_module("bert_score")
+    _, _, f1 = bs_mod.score(
         list(predictions),
         list(references),
         model_type=model_type,

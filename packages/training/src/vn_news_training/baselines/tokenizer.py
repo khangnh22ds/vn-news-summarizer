@@ -8,6 +8,7 @@ variable ``VN_NEWS_USE_UNDERTHESEA=0`` (used by the test suite).
 
 from __future__ import annotations
 
+import importlib
 import os
 import re
 from collections.abc import Callable
@@ -42,12 +43,15 @@ def _load_underthesea() -> tuple[Callable[..., Any] | None, Callable[..., Any] |
         _ut_cache["word"] = False
         return None, None
     try:
-        from underthesea import sent_tokenize as ut_sent
-        from underthesea import word_tokenize as ut_word
+        # Loaded via importlib so the heavy CRF C-extension stays out of
+        # the import graph until actually needed.
+        ut = importlib.import_module("underthesea")
     except Exception:
         _ut_cache["sent"] = False
         _ut_cache["word"] = False
         return None, None
+    ut_sent = ut.sent_tokenize
+    ut_word = ut.word_tokenize
     _ut_cache["sent"] = ut_sent
     _ut_cache["word"] = ut_word
     return ut_sent, ut_word
