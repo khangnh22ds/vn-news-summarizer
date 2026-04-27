@@ -9,6 +9,7 @@ dependencies = [
     "transformers>=4.46",
     "torch>=2.4",
     "sentencepiece>=0.2",
+    "peft>=0.13",                     # LoRA adapter loading in finetune_loader
     "google-cloud-aiplatform>=1.74",  # for fallback path
     "tenacity>=9.0",
 ]
