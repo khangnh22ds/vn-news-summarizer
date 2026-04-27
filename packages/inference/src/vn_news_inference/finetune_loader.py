@@ -131,12 +131,22 @@ class ViT5Summarizer:
         """
         if not texts:
             return []
+        # Pre-filter empty/whitespace inputs to match :meth:`summarize`'s
+        # contract — those entries always map to "" without invoking the
+        # model. Without this, ``summarize_batch != [summarize(t) ...]``
+        # for empty inputs.
+        empty_mask = [(not t or not t.strip()) for t in texts]
+        non_empty = [t for t, is_empty in zip(texts, empty_mask, strict=True) if not is_empty]
+        if not non_empty:
+            return ["" for _ in texts]
+
         chunk = batch_size if batch_size and batch_size > 0 else self.generation.batch_size
         chunk = max(chunk, 1)
         model, tokenizer = self._ensure_loaded()
-        out: list[str] = []
-        for i in range(0, len(texts), chunk):
-            sub = texts[i : i + chunk]
+
+        decoded_iter: list[str] = []
+        for i in range(0, len(non_empty), chunk):
+            sub = non_empty[i : i + chunk]
             inputs = tokenizer(
                 sub,
                 max_length=self.generation.max_input_length,
@@ -154,6 +164,18 @@ class ViT5Summarizer:
                 length_penalty=self.generation.length_penalty,
                 early_stopping=self.generation.early_stopping,
             )
-            decoded = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            out.extend(str(s) for s in decoded)
+            decoded_iter.extend(
+                str(s) for s in tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            )
+
+        # Re-thread results back into the original order, leaving "" in
+        # place for the empty rows.
+        out: list[str] = []
+        cursor = 0
+        for is_empty in empty_mask:
+            if is_empty:
+                out.append("")
+            else:
+                out.append(decoded_iter[cursor])
+                cursor += 1
         return out

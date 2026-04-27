@@ -132,3 +132,32 @@ def test_summarize_batch_empty_list_returns_empty(tmp_path: Path) -> None:
     summarizer = ViT5Summarizer(tmp_path)
     # No model load required for an empty list.
     assert summarizer.summarize_batch([]) == []
+
+
+def test_summarize_batch_short_circuits_empty_strings(tmp_path: Path) -> None:
+    """Empty / whitespace inputs must map to "" without ever hitting the
+    model — same contract as :meth:`ViT5Summarizer.summarize`."""
+    summarizer = ViT5Summarizer(tmp_path, generation=GenerationConfig(batch_size=2))
+    fake_model = _FakeBatchModel()
+    summarizer._model = fake_model
+    summarizer._tokenizer = _FakeBatchTokenizer()
+
+    out = summarizer.summarize_batch(["hello", "", "  \n", "world"])
+    assert out[0] != ""
+    assert out[1] == ""
+    assert out[2] == ""
+    assert out[3] != ""
+    # Only the two non-empty inputs reach generate(); batch_size=2 -> [2].
+    assert fake_model.calls == [2]
+
+
+def test_summarize_batch_all_empty_skips_model(tmp_path: Path) -> None:
+    summarizer = ViT5Summarizer(tmp_path)
+    fake_model = _FakeBatchModel()
+    summarizer._model = fake_model
+    summarizer._tokenizer = _FakeBatchTokenizer()
+
+    out = summarizer.summarize_batch(["", "  ", "\t\n"])
+    assert out == ["", "", ""]
+    # Model never called.
+    assert fake_model.calls == []
