@@ -54,13 +54,26 @@ db-down: ## Stop and remove db/redis containers.
 	$(COMPOSE) stop db redis
 
 .PHONY: db-migrate
-db-migrate: ## Run Alembic migrations (placeholder until Phase 1).
-	@echo "Alembic not initialized yet. Will be wired up in Phase 1 (TICKET-002)."
+db-migrate: ## Apply Alembic migrations to the configured DATABASE_URL.
+	$(UV) run alembic upgrade head
 
-# --- Pipeline entrypoints (placeholders until later phases) ---------------
+.PHONY: db-revision
+db-revision: ## Autogenerate a new Alembic revision (use MSG="...").
+	$(UV) run alembic revision --autogenerate -m "$(MSG)"
+
+.PHONY: db-reset
+db-reset: ## DEV ONLY: drop SQLite file and re-apply all migrations.
+	rm -f data/app.db
+	$(UV) run alembic upgrade head
+
+# --- Pipeline entrypoints --------------------------------------------------
 .PHONY: crawl
-crawl: ## Run a one-shot crawl (Phase 1).
-	$(PY) scripts/run_crawler.py
+crawl: ## Run a one-shot crawl over all enabled sources.
+	$(UV) run python scripts/run_crawler.py
+
+.PHONY: crawl-schedule
+crawl-schedule: ## Run the crawler as a long-lived scheduler (every 30 min).
+	$(UV) run python scripts/run_crawler.py --schedule
 
 .PHONY: label
 label: ## Run LLM labeling worker (Phase 2).
