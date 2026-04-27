@@ -1,0 +1,135 @@
+# Vietnamese news sources for the MVP crawler.
+#
+# Conventions:
+# - `domain` is the bare host (no scheme).
+# - `rss` lists one or more RSS/Atom feeds. Prefer "tin mới nhất" or category feeds.
+# - `categories` maps source-side category labels to our internal canonical key.
+# - `enabled: false` to temporarily skip a source without removing config.
+# - `crawl_delay_s` overrides the global default in .env.
+#
+# Always re-check robots.txt before enabling a source. See docs/legal_notes.md.
+
+defaults:
+  user_agent: "vn-news-summarizer-research/0.1 (+https://github.com/khangnh22ds/vn-news-summarizer)"
+  crawl_delay_s: 1.0
+  timeout_s: 20
+  max_retries: 3
+  language: vi
+
+sources:
+  - id: vnexpress
+    name: VnExpress
+    domain: vnexpress.net
+    enabled: true
+    rss:
+      - https://vnexpress.net/rss/tin-moi-nhat.rss
+      - https://vnexpress.net/rss/thoi-su.rss
+      - https://vnexpress.net/rss/kinh-doanh.rss
+      - https://vnexpress.net/rss/so-hoa.rss
+      - https://vnexpress.net/rss/the-thao.rss
+      - https://vnexpress.net/rss/giai-tri.rss
+      - https://vnexpress.net/rss/giao-duc.rss
+      - https://vnexpress.net/rss/khoa-hoc.rss
+      - https://vnexpress.net/rss/suc-khoe.rss
+
+  - id: tuoitre
+    name: Tuoi Tre Online
+    domain: tuoitre.vn
+    enabled: true
+    rss:
+      - https://tuoitre.vn/rss/tin-moi-nhat.rss
+      - https://tuoitre.vn/rss/thoi-su.rss
+      - https://tuoitre.vn/rss/kinh-doanh.rss
+      - https://tuoitre.vn/rss/cong-nghe.rss
+      - https://tuoitre.vn/rss/the-thao.rss
+      - https://tuoitre.vn/rss/giai-tri.rss
+      - https://tuoitre.vn/rss/giao-duc.rss
+      - https://tuoitre.vn/rss/suc-khoe.rss
+
+  - id: thanhnien
+    name: Thanh Nien
+    domain: thanhnien.vn
+    enabled: true
+    rss:
+      - https://thanhnien.vn/rss/home.rss
+      - https://thanhnien.vn/rss/thoi-su.rss
+      - https://thanhnien.vn/rss/kinh-te.rss
+      - https://thanhnien.vn/rss/cong-nghe.rss
+      - https://thanhnien.vn/rss/the-thao.rss
+      - https://thanhnien.vn/rss/giai-tri.rss
+      - https://thanhnien.vn/rss/giao-duc.rss
+      - https://thanhnien.vn/rss/suc-khoe.rss
+
+  - id: vietnamnet
+    name: VietnamNet
+    domain: vietnamnet.vn
+    enabled: true
+    rss:
+      - https://vietnamnet.vn/rss/tin-moi-nong.rss
+      - https://vietnamnet.vn/rss/thoi-su.rss
+      - https://vietnamnet.vn/rss/kinh-doanh.rss
+      - https://vietnamnet.vn/rss/cong-nghe.rss
+      - https://vietnamnet.vn/rss/the-thao.rss
+      - https://vietnamnet.vn/rss/giai-tri.rss
+      - https://vietnamnet.vn/rss/giao-duc.rss
+      - https://vietnamnet.vn/rss/suc-khoe.rss
+
+  - id: dantri
+    name: Dan Tri
+    domain: dantri.com.vn
+    enabled: true
+    rss:
+      - https://dantri.com.vn/rss/home.rss
+      - https://dantri.com.vn/rss/xa-hoi.rss
+      - https://dantri.com.vn/rss/kinh-doanh.rss
+      - https://dantri.com.vn/rss/cong-nghe.rss
+      - https://dantri.com.vn/rss/the-thao.rss
+      - https://dantri.com.vn/rss/giai-tri.rss
+      - https://dantri.com.vn/rss/giao-duc-huong-nghiep.rss
+      - https://dantri.com.vn/rss/suc-khoe.rss
+
+  - id: znews
+    name: Znews
+    domain: znews.vn
+    enabled: true
+    rss:
+      - https://znews.vn/rss/tin-moi.rss
+      # NOTE: Znews migrated from zingnews.vn — verify feed URLs after first crawl.
+
+  - id: vtcnews
+    name: VTC News
+    domain: vtcnews.vn
+    enabled: true
+    rss:
+      - https://vtcnews.vn/rss/feed.rss
+      - https://vtcnews.vn/rss/thoi-su.rss
+      - https://vtcnews.vn/rss/kinh-te.rss
+      - https://vtcnews.vn/rss/cong-nghe.rss
+      - https://vtcnews.vn/rss/the-thao.rss
+      - https://vtcnews.vn/rss/giai-tri.rss
+
+  - id: laodong
+    name: Lao Dong
+    domain: laodong.vn
+    enabled: true
+    rss:
+      - https://laodong.vn/rss/home.rss
+      - https://laodong.vn/rss/thoi-su.rss
+      - https://laodong.vn/rss/kinh-doanh.rss
+      - https://laodong.vn/rss/cong-nghe.rss
+      - https://laodong.vn/rss/the-thao.rss
+      - https://laodong.vn/rss/van-hoa-giai-tri.rss
+      - https://laodong.vn/rss/giao-duc.rss
+      - https://laodong.vn/rss/suc-khoe.rss
+
+# Canonical category mapping — populated/refined in Phase 1.
+# Keys are normalized internal IDs. Values are common Vietnamese aliases.
+canonical_categories:
+  thoi_su: ["thời sự", "thoi-su", "xa-hoi", "xã hội"]
+  kinh_doanh: ["kinh doanh", "kinh-doanh", "kinh-te", "kinh tế"]
+  cong_nghe: ["công nghệ", "cong-nghe", "so-hoa", "khoa-hoc"]
+  the_thao: ["thể thao", "the-thao"]
+  giai_tri: ["giải trí", "giai-tri", "van-hoa-giai-tri"]
+  giao_duc: ["giáo dục", "giao-duc", "giao-duc-huong-nghiep"]
+  suc_khoe: ["sức khỏe", "suc-khoe"]
+  the_gioi: ["thế giới", "the-gioi"]

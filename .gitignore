@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# uv
+# Keep uv.lock in repo for reproducibility — do NOT ignore it.
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+service-account*.json
+credentials*.json
+!**/configs/**/*.json
+
+# Data (managed by DVC)
+/data/raw/
+/data/interim/
+/data/processed/
+/data/external/
+!/data/.gitkeep
+
+# Models / artifacts
+/models/
+!/models/.gitkeep
+mlruns/
+mlflow.db
+wandb/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.pnpm-store/
+
+# Docker
+*.pid
+
+# Logs
+*.log
+logs/
+
+# Misc
+.cache/
+.tmp/

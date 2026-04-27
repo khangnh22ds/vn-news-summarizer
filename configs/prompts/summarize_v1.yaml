@@ -1,0 +1,67 @@
+# Prompt template for LLM-assisted Vietnamese news summarization.
+# Bumped via semver: changing `version` invalidates downstream cached labels.
+version: "1.0.0"
+model: "gemini-2.0-flash-001"
+provider: vertex_ai
+
+generation_config:
+  temperature: 0.2
+  top_p: 0.9
+  max_output_tokens: 256
+  response_mime_type: application/json
+
+# System / instruction text.
+system: |
+  Bạn là biên tập viên báo chí tiếng Việt. Tóm tắt phải:
+  - Trung thực 100% với bài gốc; KHÔNG suy diễn, KHÔNG bịa số liệu hay tên riêng.
+  - 2–3 câu, tổng cộng 40–70 từ.
+  - Văn phong báo chí, trung lập, không cảm thán, không câu hỏi.
+  - Giữ nguyên tên riêng, số liệu, ngày tháng đúng như bài gốc.
+  - Nếu thông tin không đủ rõ, viết câu trung lập, KHÔNG bổ sung từ kiến thức ngoài.
+
+# User message template (Python str.format placeholders).
+# `content_text` is truncated to ~6000 chars before substitution.
+user_template: |
+  Tiêu đề: {title}
+  Chuyên mục: {category}
+  Nguồn: {source}
+
+  Nội dung:
+  """
+  {content_text}
+  """
+
+  Trả về JSON đúng schema:
+  {{
+    "summary": "...",
+    "key_entities": ["..."],
+    "confidence": 0.0,
+    "refusal_reason": null
+  }}
+
+response_schema:
+  type: object
+  required: [summary, key_entities, confidence]
+  properties:
+    summary:
+      type: string
+      minLength: 40
+      maxLength: 600
+    key_entities:
+      type: array
+      items: { type: string }
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    refusal_reason:
+      type: [string, "null"]
+
+qc:
+  min_words: 40
+  max_words: 80
+  min_sentences: 2
+  max_sentences: 4
+  entity_fuzzy_min_ratio: 0.9
+  nli_entailment_min: 0.7
+  nli_model: "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"

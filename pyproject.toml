@@ -1,0 +1,157 @@
+[project]
+name = "vn-news-summarizer"
+version = "0.1.0"
+description = "Vietnamese real-time news summarization (research/educational)."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "NGUYỄN HOÀNG KHANG", email = "khangnh.22ds@vku.udn.vn" }]
+keywords = ["nlp", "summarization", "vietnamese", "news"]
+
+# Root project pulls in every workspace package + dev tooling so that a single
+# `uv sync` from the repo root sets up a complete dev environment.
+dependencies = [
+    "vn-news-common",
+    "vn-news-crawler",
+    "vn-news-labeling",
+    "vn-news-training",
+    "vn-news-inference",
+    "vn-news-api",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "httpx>=0.27.0",
+    "pre-commit>=4.0.0",
+    "types-PyYAML>=6.0.12",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+vn-news-common     = { workspace = true }
+vn-news-crawler    = { workspace = true }
+vn-news-labeling   = { workspace = true }
+vn-news-training   = { workspace = true }
+vn-news-inference  = { workspace = true }
+vn-news-api        = { workspace = true }
+
+# ------------------------------------------------------------------ ruff ---
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["packages", "scripts", "tests"]
+extend-exclude = ["data", "models", "mlruns", "apps/web", "notebooks"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",     # pycodestyle / pyflakes
+    "I",               # isort
+    "UP",              # pyupgrade
+    "B",               # flake8-bugbear
+    "SIM",             # flake8-simplify
+    "RUF",             # ruff-specific
+    "PL",              # pylint subset
+    "TID",             # tidy imports
+    "PTH",             # use pathlib
+    "ASYNC",           # async correctness
+]
+ignore = [
+    "PLR0913",  # too many args (often fine in ML code)
+    "PLR2004",  # magic value comparison (ok in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "S101"]
+"scripts/**" = ["T201"]  # print is ok in CLI scripts
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ------------------------------------------------------------------ mypy ---
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+pretty = true
+show_error_codes = true
+explicit_package_bases = true
+files = [
+    "packages/common/src",
+    "packages/crawler/src",
+    "packages/labeling/src",
+    "packages/training/src",
+    "packages/inference/src",
+    "packages/api/src",
+    "scripts",
+    "tests",
+]
+mypy_path = [
+    "packages/common/src",
+    "packages/crawler/src",
+    "packages/labeling/src",
+    "packages/training/src",
+    "packages/inference/src",
+    "packages/api/src",
+]
+exclude = [
+    "data/",
+    "models/",
+    "mlruns/",
+    "apps/web/",
+    "notebooks/",
+    "build/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "trafilatura.*",
+    "feedparser.*",
+    "pyvi.*",
+    "underthesea.*",
+    "rouge_score.*",
+    "bert_score.*",
+    "sumy.*",
+    "google.cloud.aiplatform.*",
+    "vertexai.*",
+]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest ---
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests", "packages"]
+asyncio_mode = "auto"
+addopts = [
+    "-q",
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:google.*",
+    "ignore::DeprecationWarning:transformers.*",
+]
+
+# ------------------------------------------------------------- coverage ---
+[tool.coverage.run]
+branch = true
+source = ["packages"]
+omit = ["**/tests/**", "**/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

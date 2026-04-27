@@ -1,0 +1,73 @@
+# Local development stack.
+# Phase 0–4 only need `db` and `redis`. `api`, `crawler`, and `web` services
+# are wired up but commented for later phases — uncomment when ready.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vn_news_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vn_news
+      POSTGRES_PASSWORD: vn_news
+      POSTGRES_DB: vn_news
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "5432:5432"
+    volumes:
+      - vn_news_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vn_news -d vn_news"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vn_news_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---- enable when Phase 5 starts ----------------------------------------
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: packages/api/Dockerfile
+  #   container_name: vn_news_api
+  #   env_file: .env
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8000:8000"
+  #
+  # crawler:
+  #   build:
+  #     context: .
+  #     dockerfile: packages/crawler/Dockerfile
+  #   container_name: vn_news_crawler
+  #   env_file: .env
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #
+  # web:
+  #   build:
+  #     context: ./apps/web
+  #   container_name: vn_news_web
+  #   env_file: .env
+  #   depends_on:
+  #     - api
+  #   ports:
+  #     - "3000:3000"
+
+volumes:
+  vn_news_pgdata:

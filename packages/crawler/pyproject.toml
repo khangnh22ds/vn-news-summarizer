@@ -1,0 +1,28 @@
+[project]
+name = "vn-news-crawler"
+version = "0.1.0"
+description = "RSS / sitemap / HTML crawler for Vietnamese news sources."
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+dependencies = [
+    "vn-news-common",
+    "httpx>=0.27",
+    "feedparser>=6.0",
+    "trafilatura>=1.12",
+    "lxml>=5.3",
+    "beautifulsoup4>=4.12",
+    "tldextract>=5.1",
+    "tenacity>=9.0",
+    "apscheduler>=3.10",
+    "simhash>=2.1",
+]
+
+[tool.uv.sources]
+vn-news-common = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vn_news_crawler"]

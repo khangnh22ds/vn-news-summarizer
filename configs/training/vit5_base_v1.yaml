@@ -1,0 +1,58 @@
+# Fine-tune ViT5-base for Vietnamese news summarization.
+# Designed to fit on a single Colab/Kaggle T4 (16GB) with LoRA.
+version: "1.0.0"
+run_name: vit5-base-news-v1
+
+dataset:
+  version: v1
+  path: data/processed/v1
+  train_file: train.parquet
+  val_file: val.parquet
+  test_file: test.parquet
+  text_column: content_text
+  target_column: summary
+
+model:
+  base: VietAI/vit5-base
+  max_input_length: 1024
+  max_target_length: 128
+
+training:
+  output_dir: models/vit5-news-v1
+  num_train_epochs: 4
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 8
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-5
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  fp16: false        # set true on T4; bf16 on A100/H100
+  bf16: false
+  evaluation_strategy: epoch
+  save_strategy: epoch
+  load_best_model_at_end: true
+  metric_for_best_model: rougeL
+  greater_is_better: true
+  predict_with_generate: true
+  generation_num_beams: 4
+  generation_max_length: 128
+  logging_steps: 50
+  save_total_limit: 2
+  seed: 42
+
+peft:
+  enabled: true
+  type: lora
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q, v]    # T5 attention projections
+
+evaluation:
+  metrics: [rouge1, rouge2, rougeL, bertscore_f1, nli_factuality]
+  bertscore_model: xlm-roberta-base
+  rouge_tokenizer: pyvi
+
+mlflow:
+  experiment_name: vn-news-summarization
+  tracking_uri: file:./mlruns
