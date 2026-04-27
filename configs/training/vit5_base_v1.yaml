@@ -1,14 +1,16 @@
 # Fine-tune ViT5-base for Vietnamese news summarization.
-# Designed to fit on a single Colab/Kaggle T4 (16GB) with LoRA.
+# Designed to fit on a single Colab/Kaggle T4 (16 GB) with LoRA.
+#
+# Dataset format: the JSONL files written by
+# ``packages/labeling.dataset.build_dataset_version`` (TICKET-003), so
+# ``content_text`` is the source article and ``summary`` is the LLM-
+# generated reference label.
 version: "1.0.0"
 run_name: vit5-base-news-v1
 
 dataset:
-  version: v1
-  path: data/processed/v1
-  train_file: train.parquet
-  val_file: val.parquet
-  test_file: test.parquet
+  name: v1
+  root: data/datasets
   text_column: content_text
   target_column: summary
 
@@ -26,9 +28,9 @@ training:
   learning_rate: 5.0e-5
   warmup_ratio: 0.05
   weight_decay: 0.01
-  fp16: false        # set true on T4; bf16 on A100/H100
+  fp16: true                    # T4 = fp16. Set bf16 instead on A100/H100.
   bf16: false
-  evaluation_strategy: epoch
+  eval_strategy: epoch          # transformers >= 4.41 renamed evaluation_strategy
   save_strategy: epoch
   load_best_model_at_end: true
   metric_for_best_model: rougeL
@@ -39,6 +41,7 @@ training:
   logging_steps: 50
   save_total_limit: 2
   seed: 42
+  report_to: ["mlflow"]         # MLflow tracking (local file backend by default).
 
 peft:
   enabled: true
@@ -46,12 +49,11 @@ peft:
   r: 16
   alpha: 32
   dropout: 0.05
-  target_modules: [q, v]    # T5 attention projections
+  target_modules: [q, v]        # T5 attention projections.
 
 evaluation:
-  metrics: [rouge1, rouge2, rougeL, bertscore_f1, nli_factuality]
+  metrics: [rouge1, rouge2, rougeL, bertscore_f1]
   bertscore_model: xlm-roberta-base
-  rouge_tokenizer: pyvi
 
 mlflow:
   experiment_name: vn-news-summarization

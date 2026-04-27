@@ -13,6 +13,16 @@ from .baselines import (
     sent_tokenize,
     word_tokenize,
 )
+from .config import (
+    DatasetConfig,
+    EvalConfig,
+    FinetuneConfig,
+    MlflowConfig,
+    ModelConfig,
+    PeftConfig,
+    TrainingConfig,
+    load_finetune_config,
+)
 from .dataset import Example, SplitName, load_dataset, load_split
 from .eval import (
     EvalResult,
@@ -22,21 +32,32 @@ from .eval import (
     evaluate_predictions,
 )
 from .mlflow_utils import log_metrics, log_params, mlflow_run
+from .preprocess import build_examples, build_hf_dataset_dict
 
 __version__ = "0.1.0"
 __all__ = [
     "BaselineName",
+    "DatasetConfig",
+    "EvalConfig",
     "EvalResult",
     "Example",
     "ExtractiveSummarizer",
+    "FinetuneConfig",
+    "MlflowConfig",
+    "ModelConfig",
+    "PeftConfig",
     "RougeAggregate",
     "SplitName",
     "SummarizerConfig",
+    "TrainingConfig",
     "__version__",
+    "build_examples",
+    "build_hf_dataset_dict",
     "compute_bertscore",
     "compute_rouge",
     "evaluate_predictions",
     "load_dataset",
+    "load_finetune_config",
     "load_split",
     "log_metrics",
     "log_params",
