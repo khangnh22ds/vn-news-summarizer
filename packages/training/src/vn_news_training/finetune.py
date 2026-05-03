@@ -14,6 +14,7 @@ takes ~30 min for ~1 000 articles, ~3 epochs.
 from __future__ import annotations
 
 import importlib
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -21,7 +22,7 @@ from typing import Any
 import numpy as np
 from loguru import logger
 
-from .config import FinetuneConfig, load_finetune_config
+from .config import FinetuneConfig, MlflowConfig, load_finetune_config
 from .preprocess import build_hf_dataset_dict
 
 
@@ -32,6 +33,27 @@ class TrainResult:
     output_dir: Path
     metrics: dict[str, float]
     best_model_checkpoint: str | None = None
+
+
+def _configure_mlflow(mlflow_cfg: MlflowConfig) -> None:
+    """Apply YAML mlflow config to env + mlflow client.
+
+    The HuggingFace ``MLflowCallback`` (activated via
+    ``report_to=['mlflow']``) reads ``MLFLOW_TRACKING_URI`` and
+    ``MLFLOW_EXPERIMENT_NAME`` from the environment; without this hook
+    the run would land in MLflow's default experiment with whatever
+    tracking URI the env happened to have.
+
+    We also call ``mlflow.set_tracking_uri`` / ``set_experiment`` so any
+    direct mlflow calls in the same process see the same target.
+    Existing env vars take precedence (so a Colab user overriding the
+    URI from the shell still wins).
+    """
+    os.environ.setdefault("MLFLOW_TRACKING_URI", mlflow_cfg.tracking_uri)
+    os.environ.setdefault("MLFLOW_EXPERIMENT_NAME", mlflow_cfg.experiment_name)
+    mlflow_mod = importlib.import_module("mlflow")
+    mlflow_mod.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+    mlflow_mod.set_experiment(os.environ["MLFLOW_EXPERIMENT_NAME"])
 
 
 def _build_lora_config(cfg: FinetuneConfig) -> Any:
@@ -123,6 +145,8 @@ def run_finetune(
     be supplied; passing ``cfg`` is mostly for tests.
     """
     cfg = cfg or load_finetune_config(config_path)
+    if "mlflow" in cfg.training.report_to:
+        _configure_mlflow(cfg.mlflow)
     transformers_mod = importlib.import_module("transformers")
     peft_mod = importlib.import_module("peft")
 
