@@ -31,6 +31,11 @@ class SourceConfig(_Base):
     crawl_delay_s: float | None = None
     timeout_s: float | None = None
     max_retries: int | None = None
+    # Cap items consumed per feed. Some publishers expose very long RSS
+    # archives (e.g. VietnamNet returns 1000 items/feed); fetching every
+    # article at the polite rate blows the per-run time budget. ``None``
+    # means no cap and is the historical default.
+    max_items_per_feed: int | None = None
     language: str = "vi"
 
 

@@ -147,6 +147,27 @@ async def test_pipeline_persists_articles(isolated_db: None) -> None:
 
 
 @pytest.mark.asyncio
+async def test_max_items_per_feed_caps_candidates(isolated_db: None) -> None:
+    """When ``max_items_per_feed`` is set, only the first N items per feed are
+    considered — dodges sources like VietnamNet that return 1000 items/feed.
+    """
+    rss_xml = _build_rss(
+        [(f"Bài {i}", f"https://news.example.com/the-thao/b{i}.html") for i in range(10)]
+    )
+    cfg = _build_cfg("https://news.example.com/feed.rss")
+    src = cfg.sources[0].model_copy(update={"max_items_per_feed": 3})
+
+    polite, robots = _make_pipeline_clients(rss_xml)
+    try:
+        stats = await _crawl_one_source(src=src, cfg=cfg, http=polite, robots=robots)
+    finally:
+        await polite.aclose()
+        await robots.aclose()
+
+    assert stats.discovered == 3
+
+
+@pytest.mark.asyncio
 async def test_pipeline_skips_disallowed_robots(isolated_db: None) -> None:
     rss_xml = _build_rss([("Blocked", "https://news.example.com/private/secret.html")])
     cfg = _build_cfg("https://news.example.com/feed.rss")
