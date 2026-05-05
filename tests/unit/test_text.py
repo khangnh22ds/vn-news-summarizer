@@ -51,3 +51,19 @@ class TestSimhash:
     def test_is_near_duplicate(self) -> None:
         text = "Tin tức về kinh tế Việt Nam quý 2 năm 2025 với nhiều biến động."
         assert is_near_duplicate(simhash64(text), simhash64(text), threshold=3)
+
+    def test_handles_heavily_repeated_ngram(self) -> None:
+        """Pages with a single n-gram repeated >50 times previously triggered
+        ``OverflowError: Python integer N out of bounds for uint8`` from the
+        upstream ``simhash`` library on numpy >= 1.24. simhash64 must stay
+        overflow-free and return a stable 64-bit integer.
+        """
+        # ~500 repetitions of the same token -> per-feature weight far above
+        # the upstream cutoff of 50.
+        text = "Phường Bến Thành Trường THPT " * 500
+        value = simhash64(text)
+        assert isinstance(value, int)
+        # Deterministic: calling twice returns the same fingerprint.
+        assert simhash64(text) == value
+        # And fits in signed 64-bit.
+        assert -(1 << 63) <= value < (1 << 63)
