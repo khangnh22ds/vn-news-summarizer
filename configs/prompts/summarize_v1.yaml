@@ -1,6 +1,6 @@
 # Prompt template for LLM-assisted Vietnamese news summarization.
 # Bumped via semver: changing `version` invalidates downstream cached labels.
-version: "1.0.0"
+version: "1.1.0"
 model: "gemini-2.5-flash"
 provider: vertex_ai
 
