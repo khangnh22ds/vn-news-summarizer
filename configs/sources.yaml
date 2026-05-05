@@ -64,8 +64,12 @@ sources:
     name: VietnamNet
     domain: vietnamnet.vn
     enabled: true
+    # VietnamNet returns ~1000 items per category feed; at crawl_delay_s=1.0
+    # that is 16+ minutes per feed. Cap at 100 items/feed to stay within the
+    # per-run time budget. `tin-moi-nong.rss` has been dropped (404 as of
+    # May 2026).
+    max_items_per_feed: 100
     rss:
-      - https://vietnamnet.vn/rss/tin-moi-nong.rss
       - https://vietnamnet.vn/rss/thoi-su.rss
       - https://vietnamnet.vn/rss/kinh-doanh.rss
       - https://vietnamnet.vn/rss/cong-nghe.rss
@@ -93,8 +97,16 @@ sources:
     domain: znews.vn
     enabled: true
     rss:
-      - https://znews.vn/rss/tin-moi.rss
-      # NOTE: Znews migrated from zingnews.vn — verify feed URLs after first crawl.
+      # `tin-moi.rss`, `kinh-doanh.rss`, `kinh-te.rss` all 404 post-zingnews
+      # migration; the category feeds below returned valid RSS as of May 2026.
+      - https://znews.vn/rss/thoi-su.rss
+      - https://znews.vn/rss/xa-hoi.rss
+      - https://znews.vn/rss/cong-nghe.rss
+      - https://znews.vn/rss/the-thao.rss
+      - https://znews.vn/rss/giai-tri.rss
+      - https://znews.vn/rss/giao-duc.rss
+      - https://znews.vn/rss/suc-khoe.rss
+      - https://znews.vn/rss/the-gioi.rss
 
   - id: vtcnews
     name: VTC News
@@ -111,7 +123,11 @@ sources:
   - id: laodong
     name: Lao Dong
     domain: laodong.vn
-    enabled: true
+    # Disabled: all RSS endpoints currently return a 177-byte JavaScript
+    # `document.cookie=...;window.location.reload(true)` anti-bot challenge
+    # instead of RSS XML. Re-enable after adding a JS-capable fetcher
+    # (e.g. Playwright) or after the upstream drops the challenge.
+    enabled: false
     rss:
       - https://laodong.vn/rss/home.rss
       - https://laodong.vn/rss/thoi-su.rss

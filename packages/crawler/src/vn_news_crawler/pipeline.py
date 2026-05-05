@@ -114,8 +114,11 @@ async def _crawl_one_source(  # noqa: PLR0912, PLR0915
 
     candidates: list[ArticleCandidate] = []
     seen_urls: set[str] = set()
+    cap = src.max_items_per_feed
     for feed_url in src.rss:
         feed_items = await fetch_feed(http, source_id=src.id, feed_url=str(feed_url))
+        if cap is not None and cap > 0:
+            feed_items = feed_items[:cap]
         for c in feed_items:
             canon = canonicalize_url(c.url)
             if canon in seen_urls:
