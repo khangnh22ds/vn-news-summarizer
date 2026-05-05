@@ -1,13 +1,13 @@
 # Prompt template for LLM-assisted Vietnamese news summarization.
 # Bumped via semver: changing `version` invalidates downstream cached labels.
 version: "1.0.0"
-model: "gemini-2.0-flash-001"
+model: "gemini-2.5-flash"
 provider: vertex_ai
 
 generation_config:
   temperature: 0.2
   top_p: 0.9
-  max_output_tokens: 256
+  max_output_tokens: 2048
   response_mime_type: application/json
 
 # System / instruction text.
