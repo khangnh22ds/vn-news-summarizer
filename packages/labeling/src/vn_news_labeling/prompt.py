@@ -21,7 +21,9 @@ class GenerationCfg(BaseModel):
 
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
-    max_output_tokens: int = Field(default=256, ge=16, le=4096)
+    # Gemini 2.5 models consume output budget for thinking tokens + response;
+    # 2048 leaves enough headroom for long Vietnamese articles without OOM.
+    max_output_tokens: int = Field(default=2048, ge=16, le=8192)
     response_mime_type: str = Field(default="application/json")
 
 
@@ -61,7 +63,7 @@ class Prompt:
             raise ValueError(msg) from exc
         return cls(
             version=str(raw.get("version", "0.0.0")),
-            model=str(raw.get("model", "gemini-2.0-flash-001")),
+            model=str(raw.get("model", "gemini-2.5-flash")),
             provider=str(raw.get("provider", "vertex_ai")),
             system=str(raw.get("system", "")).strip(),
             user_template=str(raw.get("user_template", "")).strip(),
