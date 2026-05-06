@@ -9,6 +9,7 @@ can pick them up.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -119,6 +120,62 @@ async def _persist_label(
             article.updated_at = utcnow()
 
 
+async def _label_one_article(
+    *,
+    art: Article,
+    source_name: str,
+    prompt: Prompt,
+    labeler: VertexLabeler,
+    sem: asyncio.Semaphore,
+    progress_idx: int,
+    progress_total: int,
+) -> tuple[str, QcResult | None]:
+    """Run the LLM + QC + persist for a single article.
+
+    Returns a ``(status, qc_result)`` tuple where ``status`` is one of
+    ``"ok"`` (label persisted, QC ran) or ``"error"`` (LLM/DB error, no
+    label written). The semaphore caps Vertex in-flight requests; the
+    rest of the work (parse + QC + DB write) runs without it because it
+    is fast and uses different resources.
+    """
+    user_msg = prompt.render_user(
+        title=art.title,
+        category=art.category,
+        source=source_name,
+        content_text=art.content_text or "",
+    )
+    async with sem:
+        try:
+            raw = await asyncio.to_thread(labeler.generate, system=prompt.system, user=user_msg)
+            output = parse_label_json(raw)
+        except (VertexLLMError, VertexTransientError, ValueError) as exc:
+            logger.warning("LLM error on article {}: {}", art.id, exc)
+            return ("error", None)
+
+    qc_source = " ".join(p for p in (art.title, art.content_text) if p)
+    qc_result = run_qc(output=output, source_text=qc_source, cfg=prompt.qc)
+    try:
+        await _persist_label(
+            article_id=art.id,
+            output=output,
+            qc_result=qc_result,
+            prompt_version=prompt.version,
+        )
+    except SQLAlchemyError as exc:  # pragma: no cover — defensive
+        logger.exception("DB error persisting label for article {}: {}", art.id, exc)
+        return ("error", None)
+
+    logger.info(
+        "[{}/{}] labeled article {} qc={} reasons={}",
+        progress_idx,
+        progress_total,
+        art.id,
+        "PASS" if qc_result.passed else "FAIL",
+        ",".join(qc_result.reasons) if qc_result.reasons else "-",
+    )
+    return ("ok", qc_result)
+
+
 async def label_batch(
     *,
     prompt: Prompt,
@@ -126,8 +183,20 @@ async def label_batch(
     limit: int = 50,
     only_sources: Sequence[str] | None = None,
     source_name_lookup: dict[int, str] | None = None,
+    concurrency: int = 1,
 ) -> LabelStats:
-    """Label up to ``limit`` articles. Returns :class:`LabelStats`."""
+    """Label up to ``limit`` articles. Returns :class:`LabelStats`.
+
+    ``concurrency`` controls how many Vertex requests run in flight at
+    once. The default of 1 matches the previous sequential behaviour.
+    Higher values trade off rate-limit safety for wall-clock speed; for
+    Gemini 2.5 Pro at the project's default 60-RPM quota, values up to
+    ~8 are safe, but 5 is a comfortable middle ground that leaves room
+    for retries on transient errors.
+    """
+    if concurrency < 1:
+        msg = f"concurrency must be >= 1, got {concurrency}"
+        raise ValueError(msg)
     stats = LabelStats(started_at=utcnow())
 
     articles = await _select_unlabeled_articles(
@@ -146,55 +215,31 @@ async def label_batch(
             rows = (await session.execute(select(Source.id, Source.name))).all()
             source_name_lookup = {sid: name for sid, name in rows}
 
-    for art in articles:
-        source_name = source_name_lookup.get(art.source_fk, "unknown")
-        user_msg = prompt.render_user(
-            title=art.title,
-            category=art.category,
-            source=source_name,
-            content_text=art.content_text or "",
+    sem = asyncio.Semaphore(concurrency)
+    total = len(articles)
+    tasks = [
+        _label_one_article(
+            art=art,
+            source_name=source_name_lookup.get(art.source_fk, "unknown"),
+            prompt=prompt,
+            labeler=labeler,
+            sem=sem,
+            progress_idx=idx,
+            progress_total=total,
         )
-        try:
-            raw = labeler.generate(system=prompt.system, user=user_msg)
-            output = parse_label_json(raw)
-        except (VertexLLMError, VertexTransientError, ValueError) as exc:
-            # ``VertexTransientError`` is re-raised by tenacity after the
-            # 5-attempt retry budget is exhausted; we must not let it bubble
-            # up and abort processing of the remaining articles.
-            logger.warning("LLM error on article {}: {}", art.id, exc)
+        for idx, art in enumerate(articles, start=1)
+    ]
+    results = await asyncio.gather(*tasks)
+
+    for status, qc_result in results:
+        if status == "error" or qc_result is None:
             stats.llm_errors += 1
             continue
-
-        # Title is part of the trusted source metadata: leagues, subjects,
-        # and proper-noun heads frequently live there even when the body
-        # extraction strips them. Including it here removes a common class
-        # of QC false-positives (e.g. summary mentions ``Premier League``
-        # while the body opens with ``CĐV theo dõi trận Everton``).
-        qc_source = " ".join(p for p in (art.title, art.content_text) if p)
-        qc_result = run_qc(output=output, source_text=qc_source, cfg=prompt.qc)
-        try:
-            await _persist_label(
-                article_id=art.id,
-                output=output,
-                qc_result=qc_result,
-                prompt_version=prompt.version,
-            )
-        except SQLAlchemyError as exc:  # pragma: no cover — defensive
-            logger.exception("DB error persisting label for article {}: {}", art.id, exc)
-            stats.llm_errors += 1
-            continue
-
         stats.labeled += 1
         if qc_result.passed:
             stats.qc_passed += 1
         else:
             stats.qc_failed += 1
-        logger.info(
-            "labeled article {} qc={} reasons={}",
-            art.id,
-            "PASS" if qc_result.passed else "FAIL",
-            ",".join(qc_result.reasons) if qc_result.reasons else "-",
-        )
 
     stats.ended_at = utcnow()
     return stats
