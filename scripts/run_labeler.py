@@ -43,6 +43,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--prompt", type=Path, default=DEFAULT_PROMPT)
     p.add_argument("--limit", type=int, default=50, help="Max articles to label this run.")
     p.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help=(
+            "Maximum Vertex requests in flight at once. 1 keeps the"
+            " sequential behaviour. 5-8 is safe for Gemini 2.5 Pro at the"
+            " project's default 60-RPM quota."
+        ),
+    )
+    p.add_argument(
         "--source",
         action="append",
         default=None,
@@ -110,6 +120,7 @@ async def _run(args: argparse.Namespace) -> int:
             labeler=labeler,
             limit=args.limit,
             only_sources=args.source,
+            concurrency=args.concurrency,
         )
         logger.info(
             "labeling done: requested={} labeled={} qc_pass={} qc_fail={} llm_err={} (rate={:.1%})",

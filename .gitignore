@@ -44,11 +44,15 @@ service-account*.json
 credentials*.json
 !**/configs/**/*.json
 
-# Data (managed by DVC)
+# Data (managed by DVC) — local artefacts, never commit
 /data/raw/
 /data/interim/
 /data/processed/
 /data/external/
+/data/datasets/
+/data/app.db
+/data/*.sqlite
+/data/*.sqlite3
 !/data/.gitkeep
 
 # Models / artifacts
