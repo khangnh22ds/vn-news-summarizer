@@ -1,13 +1,17 @@
 # Prompt template for LLM-assisted Vietnamese news summarization.
 # Bumped via semver: changing `version` invalidates downstream cached labels.
-version: "1.1.0"
-model: "gemini-2.5-flash"
+version: "1.2.0"
+model: "gemini-2.5-pro"
 provider: vertex_ai
 
 generation_config:
   temperature: 0.2
   top_p: 0.9
-  max_output_tokens: 2048
+  # Gemini 2.5 Pro reasons more aggressively than 2.5 Flash and easily
+  # exhausts a 2048-token budget on long Vietnamese articles (the
+  # "thinking" tokens count against this budget); 4096 leaves headroom
+  # without ever approaching the per-call latency cliff in practice.
+  max_output_tokens: 4096
   response_mime_type: application/json
 
 # System / instruction text.
@@ -59,9 +63,18 @@ response_schema:
 
 qc:
   min_words: 40
-  max_words: 80
+  # Bumped from 80 -> 90: 2.5 Pro produces slightly longer, more
+  # information-dense Vietnamese summaries; the smoke-test sample
+  # showed 4/50 false-positive too-long failures at 81-90 words on
+  # otherwise-faithful outputs.
+  max_words: 90
   min_sentences: 2
   max_sentences: 4
-  entity_fuzzy_min_ratio: 0.9
+  # Lowered from 0.90 -> 0.85: 0.90 produced false negatives on common
+  # multi-token names containing diacritics (e.g. ``Premier League``
+  # missed when the source had a non-breaking space variant). The other
+  # entity-faithfulness fallbacks in qc.py keep this safe against actual
+  # hallucinated names.
+  entity_fuzzy_min_ratio: 0.85
   nli_entailment_min: 0.7
   nli_model: "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"

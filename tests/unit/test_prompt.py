@@ -13,7 +13,7 @@ PROMPT_PATH = REPO_ROOT / "configs" / "prompts" / "summarize_v1.yaml"
 
 def test_prompt_loads_from_repo_yaml() -> None:
     p = Prompt.from_yaml(PROMPT_PATH)
-    assert p.version == "1.1.0"
+    assert p.version == "1.2.0"
     assert p.provider == "vertex_ai"
     assert "biên tập viên" in p.system
     assert "{title}" in p.user_template

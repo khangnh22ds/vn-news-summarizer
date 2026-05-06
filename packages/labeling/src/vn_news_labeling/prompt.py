@@ -22,8 +22,9 @@ class GenerationCfg(BaseModel):
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
     # Gemini 2.5 models consume output budget for thinking tokens + response;
-    # 2048 leaves enough headroom for long Vietnamese articles without OOM.
-    max_output_tokens: int = Field(default=2048, ge=16, le=8192)
+    # 4096 leaves enough headroom for long Vietnamese articles even on the
+    # Pro variant, which reasons more aggressively than Flash.
+    max_output_tokens: int = Field(default=4096, ge=16, le=8192)
     response_mime_type: str = Field(default="application/json")
 
 
@@ -31,10 +32,10 @@ class QcCfg(BaseModel):
     """QC thresholds. NLI fields are kept for future tickets but unused here."""
 
     min_words: int = Field(default=40, ge=1)
-    max_words: int = Field(default=80, ge=1)
+    max_words: int = Field(default=90, ge=1)
     min_sentences: int = Field(default=2, ge=1)
     max_sentences: int = Field(default=4, ge=1)
-    entity_fuzzy_min_ratio: float = Field(default=0.9, ge=0.0, le=1.0)
+    entity_fuzzy_min_ratio: float = Field(default=0.85, ge=0.0, le=1.0)
     nli_entailment_min: float = Field(default=0.7, ge=0.0, le=1.0)
     nli_model: str | None = Field(default=None)
 
@@ -63,7 +64,7 @@ class Prompt:
             raise ValueError(msg) from exc
         return cls(
             version=str(raw.get("version", "0.0.0")),
-            model=str(raw.get("model", "gemini-2.5-flash")),
+            model=str(raw.get("model", "gemini-2.5-pro")),
             provider=str(raw.get("provider", "vertex_ai")),
             system=str(raw.get("system", "")).strip(),
             user_template=str(raw.get("user_template", "")).strip(),
