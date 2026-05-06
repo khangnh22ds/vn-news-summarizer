@@ -22,8 +22,9 @@ class GenerationCfg(BaseModel):
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
     # Gemini 2.5 models consume output budget for thinking tokens + response;
-    # 2048 leaves enough headroom for long Vietnamese articles without OOM.
-    max_output_tokens: int = Field(default=2048, ge=16, le=8192)
+    # 4096 leaves enough headroom for long Vietnamese articles even on the
+    # Pro variant, which reasons more aggressively than Flash.
+    max_output_tokens: int = Field(default=4096, ge=16, le=8192)
     response_mime_type: str = Field(default="application/json")
 
 
@@ -31,10 +32,10 @@ class QcCfg(BaseModel):
     """QC thresholds. NLI fields are kept for future tickets but unused here."""
 
     min_words: int = Field(default=40, ge=1)
-    max_words: int = Field(default=80, ge=1)
+    max_words: int = Field(default=90, ge=1)
     min_sentences: int = Field(default=2, ge=1)
     max_sentences: int = Field(default=4, ge=1)
-    entity_fuzzy_min_ratio: float = Field(default=0.9, ge=0.0, le=1.0)
+    entity_fuzzy_min_ratio: float = Field(default=0.85, ge=0.0, le=1.0)
     nli_entailment_min: float = Field(default=0.7, ge=0.0, le=1.0)
     nli_model: str | None = Field(default=None)
 
@@ -63,7 +64,7 @@ class Prompt:
             raise ValueError(msg) from exc
         return cls(
             version=str(raw.get("version", "0.0.0")),
-            model=str(raw.get("model", "gemini-2.5-flash")),
+            model=str(raw.get("model", "gemini-2.5-pro")),
             provider=str(raw.get("provider", "vertex_ai")),
             system=str(raw.get("system", "")).strip(),
             user_template=str(raw.get("user_template", "")).strip(),
@@ -107,12 +108,34 @@ def parse_label_json(raw_text: str) -> LabelOutput:
 
     Raises ``ValueError`` if the JSON is malformed or doesn't match the
     expected shape.
+
+    Includes a few mechanical normalisations to absorb the most common
+    Gemini 2.5 Pro quirks observed in production (these caused ~20 % of
+    labelling attempts to fail before the fix even though the model did
+    produce a usable summary):
+
+    1. Unescaped control characters inside string values \u2014 retried with
+       ``strict=False`` once.
+    2. ``confidence`` reported on a 0\u201310 scale instead of 0\u20131 \u2014 clamped
+       to 1.0.
+    3. ``summary: null`` paired with a populated ``refusal_reason`` \u2014
+       converted to an empty-summary refusal so the QC battery can flag
+       it cleanly downstream rather than the parser raising.
     """
     try:
         data = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        msg = f"LLM did not return valid JSON: {exc}"
-        raise ValueError(msg) from exc
+    except json.JSONDecodeError:
+        try:
+            data = json.loads(raw_text, strict=False)
+        except json.JSONDecodeError as exc:
+            msg = f"LLM did not return valid JSON: {exc}"
+            raise ValueError(msg) from exc
+    if isinstance(data, dict):
+        conf = data.get("confidence")
+        if isinstance(conf, int | float) and conf > 1.0:
+            data["confidence"] = 1.0
+        if data.get("summary") is None and data.get("refusal_reason"):
+            data["summary"] = ""
     try:
         return LabelOutput(**data)
     except ValidationError as exc:

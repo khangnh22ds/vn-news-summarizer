@@ -165,7 +165,13 @@ async def label_batch(
             stats.llm_errors += 1
             continue
 
-        qc_result = run_qc(output=output, source_text=art.content_text or "", cfg=prompt.qc)
+        # Title is part of the trusted source metadata: leagues, subjects,
+        # and proper-noun heads frequently live there even when the body
+        # extraction strips them. Including it here removes a common class
+        # of QC false-positives (e.g. summary mentions ``Premier League``
+        # while the body opens with ``CĐV theo dõi trận Everton``).
+        qc_source = " ".join(p for p in (art.title, art.content_text) if p)
+        qc_result = run_qc(output=output, source_text=qc_source, cfg=prompt.qc)
         try:
             await _persist_label(
                 article_id=art.id,

@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     google_cloud_project: str | None = Field(default=None)
     google_cloud_location: str = Field(default="asia-southeast1")
     google_application_credentials: str | None = Field(default=None)
-    vertex_llm_model: str = Field(default="gemini-2.5-flash")
+    vertex_llm_model: str = Field(default="gemini-2.5-pro")
 
     # ---- Crawler --------------------------------------------------------
     crawler_user_agent: str = Field(
