@@ -108,12 +108,34 @@ def parse_label_json(raw_text: str) -> LabelOutput:
 
     Raises ``ValueError`` if the JSON is malformed or doesn't match the
     expected shape.
+
+    Includes a few mechanical normalisations to absorb the most common
+    Gemini 2.5 Pro quirks observed in production (these caused ~20 % of
+    labelling attempts to fail before the fix even though the model did
+    produce a usable summary):
+
+    1. Unescaped control characters inside string values \u2014 retried with
+       ``strict=False`` once.
+    2. ``confidence`` reported on a 0\u201310 scale instead of 0\u20131 \u2014 clamped
+       to 1.0.
+    3. ``summary: null`` paired with a populated ``refusal_reason`` \u2014
+       converted to an empty-summary refusal so the QC battery can flag
+       it cleanly downstream rather than the parser raising.
     """
     try:
         data = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        msg = f"LLM did not return valid JSON: {exc}"
-        raise ValueError(msg) from exc
+    except json.JSONDecodeError:
+        try:
+            data = json.loads(raw_text, strict=False)
+        except json.JSONDecodeError as exc:
+            msg = f"LLM did not return valid JSON: {exc}"
+            raise ValueError(msg) from exc
+    if isinstance(data, dict):
+        conf = data.get("confidence")
+        if isinstance(conf, int | float) and conf > 1.0:
+            data["confidence"] = 1.0
+        if data.get("summary") is None and data.get("refusal_reason"):
+            data["summary"] = ""
     try:
         return LabelOutput(**data)
     except ValidationError as exc:

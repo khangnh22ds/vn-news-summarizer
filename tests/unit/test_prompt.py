@@ -69,6 +69,34 @@ def test_parse_label_json_invalid_json() -> None:
 
 
 def test_parse_label_json_invalid_schema() -> None:
-    raw = '{"summary": "x", "confidence": 5.0}'  # confidence > 1
+    # Fully unparseable confidence values are clamped, but a malformed
+    # value (negative, NaN) still triggers a schema error.
+    raw = '{"summary": "x", "confidence": -0.5}'
     with pytest.raises(ValueError, match="schema"):
         parse_label_json(raw)
+
+
+def test_parse_label_json_clamps_out_of_range_confidence() -> None:
+    """Gemini 2.5 Pro occasionally reports confidence on a 0-10 scale."""
+    raw = '{"summary": "x", "confidence": 10.0, "key_entities": []}'
+    out = parse_label_json(raw)
+    assert out.confidence == pytest.approx(1.0)
+
+
+def test_parse_label_json_null_summary_with_refusal() -> None:
+    """A null summary paired with a refusal becomes an empty-summary refusal."""
+    raw = (
+        '{"summary": null, "confidence": 0.0, "key_entities": [], '
+        '"refusal_reason": "content_inconsistent"}'
+    )
+    out = parse_label_json(raw)
+    assert out.summary == ""
+    assert out.refusal_reason == "content_inconsistent"
+
+
+def test_parse_label_json_recovers_from_unescaped_control_char() -> None:
+    """A raw newline inside a string is salvaged by ``strict=False``."""
+    raw = '{"summary": "line one\nline two", "confidence": 0.5, "key_entities": []}'
+    out = parse_label_json(raw)
+    assert "line one" in out.summary
+    assert "line two" in out.summary
