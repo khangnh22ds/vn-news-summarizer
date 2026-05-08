@@ -89,9 +89,16 @@ def _make_compute_metrics(
         preds, labels = eval_pred
         if isinstance(preds, tuple):
             preds = preds[0]
-        # transformers fills label-pad with -100; swap back to the
-        # tokenizer's pad id before decoding.
-        labels = np.where(labels == -100, tokenizer.pad_token_id, labels)
+        # transformers fills label-pad with -100, and pads ragged
+        # generation outputs in ``all_preds`` with -100 too. The fast
+        # tokenizer's Rust decoder casts each id to ``u32`` and raises
+        # ``OverflowError`` on negatives, so swap ANY negative value
+        # back to the tokenizer's pad id before decoding (preds + labels).
+        pad_id = tokenizer.pad_token_id
+        preds = np.asarray(preds)
+        labels = np.asarray(labels)
+        preds = np.where(preds < 0, pad_id, preds)
+        labels = np.where(labels < 0, pad_id, labels)
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
         decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
         r1 = r2 = rL = 0.0
