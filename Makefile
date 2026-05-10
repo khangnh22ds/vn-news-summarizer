@@ -105,8 +105,20 @@ api: ## Run the FastAPI dev server.
 	$(UV) run uvicorn vn_news_api.app:app --reload --host 0.0.0.0 --port 8000
 
 .PHONY: web
-web: ## Run the Next.js dev server (after `cd apps/web && npm install`).
-	cd apps/web && npm run dev
+web: ## Run the Next.js dev server (auto-installs deps on first run).
+	cd apps/web && (test -d node_modules || npm install) && npm run dev
+
+.PHONY: web-install
+web-install: ## Install Next.js frontend deps (idempotent).
+	cd apps/web && npm install
+
+.PHONY: web-build
+web-build: ## Build the Next.js frontend (production bundle).
+	cd apps/web && npm run build
+
+.PHONY: bootstrap-model
+bootstrap-model: ## Extract a ViT5 LoRA tarball into ./models/ (default: ./vit5-news-v2.tar.gz).
+	bash scripts/bootstrap_model.sh $(TARBALL)
 
 .PHONY: up
 up: ## docker-compose up everything in the background.

@@ -5,13 +5,15 @@
 > Gemini), fine-tune a smaller model (`VietAI/vit5-base`), and serve
 > daily summaries through a FastAPI + Next.js web app.
 
-**Status:** Phase 4 complete — labeling pipeline (2 070 / 2 412 = 85.8 %
-QC pass on Gemini 2.5 Pro), ViT5-base + LoRA fine-tune (test ROUGE-L
-0.3804, see [`docs/training_v2_report.md`](docs/training_v2_report.md)),
-and the resulting LoRA adapter is published as a private HF Hub repo at
-[`Gthgfuiss123/vit5-news-vi-lora-v2`](https://huggingface.co/Gthgfuiss123/vit5-news-vi-lora-v2).
-Phase 5 (FastAPI + Next.js web UI) is the next ticket. See
-[`docs/roadmap.md`](docs/roadmap.md).
+**Status:** Phase 5 complete — FastAPI `/summarize` backend +
+Next.js 14 frontend, runnable locally with no cloud dependencies.
+Labeling pipeline (2 070 / 2 412 = 85.8 % QC pass on Gemini 2.5 Pro)
+and the ViT5-base + LoRA fine-tune (test ROUGE-L 0.3804, see
+[`docs/training_v2_report.md`](docs/training_v2_report.md)) are done.
+The LoRA adapter is published privately at
+[`Gthgfuiss123/vit5-news-vi-lora-v2`](https://huggingface.co/Gthgfuiss123/vit5-news-vi-lora-v2)
+but the local web UI defaults to reading the adapter directly off disk —
+see the "Web UI" section below.
 
 ---
 
@@ -106,23 +108,70 @@ make web         # Phase 5
 
 See [`docs/roadmap.md`](docs/roadmap.md) for what each phase delivers.
 
-## Loading the trained adapter
+## Web UI (local-only)
 
-Once Phase 4 has been run (or for downstream users skipping training),
-the resulting LoRA adapter can be loaded straight from the HF Hub:
+The web UI runs entirely on your laptop. No cloud, no Hugging Face Hub
+auth, no Postgres, no Redis. Two dependencies:
+
+1. The Python workspace (`make setup`).
+2. Node.js ≥ 20 for the frontend.
+
+One-time setup:
+
+```bash
+cp .env.example .env
+make setup                            # uv sync workspace
+make web-install                      # npm install in apps/web
+
+# Drop the LoRA tarball you trained on Colab into the repo root (or
+# pass an explicit path via TARBALL=...) and extract it:
+make bootstrap-model TARBALL=path/to/vit5-news-v2.tar.gz
+```
+
+Run it (two terminals):
+
+```bash
+# terminal 1 — backend on :8000
+make api
+
+# terminal 2 — frontend on :3000
+make web
+```
+
+Open http://localhost:3000, paste a Vietnamese news URL or a paragraph
+of text, and submit. The first request loads the model into RAM
+(~30 s); subsequent requests are inference-only (~6 – 14 s on CPU).
+
+Configuration lives in `.env` — only two variables matter for the
+web UI:
+
+- `MODEL_PATH` — defaults to `./models/vit5-news-v2` (the directory
+  populated by `make bootstrap-model`). Can also be a Hub repo id
+  (needs `HF_TOKEN`) or a base model id (`VietAI/vit5-base`).
+- `NEXT_PUBLIC_API_BASE_URL` — defaults to `http://localhost:8000`.
+
+The `apps/web/` directory is a standalone Next.js project (its own
+`package.json`, no Python deps). You can develop the frontend without
+touching the Python workspace at all.
+
+## Loading the trained adapter (Python)
+
+If you only want to call the model from Python (no FastAPI / Next.js):
 
 ```python
-from vn_news_inference import DEFAULT_HF_REPO, ViT5Summarizer
+from vn_news_inference import ViT5Summarizer
 
-# DEFAULT_HF_REPO == "Gthgfuiss123/vit5-news-vi-lora-v2" (private).
-# Make sure HF_TOKEN is set with read access, or run `huggingface-cli login`.
-summarizer = ViT5Summarizer(DEFAULT_HF_REPO)
+# Local adapter (after `make bootstrap-model`):
+summarizer = ViT5Summarizer("./models/vit5-news-v2")
+
+# Or pull from the Hub (needs HF_TOKEN with read access):
+#   from vn_news_inference import DEFAULT_HF_REPO
+#   summarizer = ViT5Summarizer(DEFAULT_HF_REPO)
+
 print(summarizer.summarize("<your Vietnamese article body here>"))
 ```
 
-The same loader also accepts a local checkpoint directory (e.g.
-`models/vit5-news-v2/checkpoint-309`) or a base-model id like
-`VietAI/vit5-base`; see
+The loader also accepts a base-model id like `VietAI/vit5-base`; see
 [`packages/inference/src/vn_news_inference/finetune_loader.py`](packages/inference/src/vn_news_inference/finetune_loader.py)
 for the full layout precedence.
 
