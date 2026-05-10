@@ -49,9 +49,8 @@ def test_importing_vn_news_training_does_not_import_mlflow() -> None:
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"subprocess failed:\nstdout={result.stdout}\nstderr={result.stderr}"
+    msg = f"subprocess failed:\nstdout={result.stdout}\nstderr={result.stderr}"
+    assert result.returncode == 0, msg
     assert result.stdout.strip().endswith("ok")
 
 
