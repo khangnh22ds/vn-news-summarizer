@@ -134,7 +134,20 @@ class ViT5Summarizer:
             base = transformers_mod.AutoModelForSeq2SeqLM.from_pretrained(base_name)
             peft_mod = importlib.import_module("peft")
             self._model = peft_mod.PeftModel.from_pretrained(base, self.model_path)
-            self._tokenizer = transformers_mod.AutoTokenizer.from_pretrained(self.model_path)
+            # Mirror the local-adapter branch: many adapter-only Hub repos
+            # ship just the LoRA weights with no tokenizer, so fall back
+            # to the base model's tokenizer when the repo doesn't provide
+            # one. We attempt the repo first since users can choose to
+            # ship a tokenizer alongside the adapter (as we do for v2).
+            try:
+                self._tokenizer = transformers_mod.AutoTokenizer.from_pretrained(self.model_path)
+            except OSError:
+                logger.info(
+                    "no tokenizer in hub repo {}, falling back to base model {}",
+                    self.model_path,
+                    base_name,
+                )
+                self._tokenizer = transformers_mod.AutoTokenizer.from_pretrained(base_name)
         else:
             logger.info("loading model + tokenizer from {}", self.model_path)
             self._model = transformers_mod.AutoModelForSeq2SeqLM.from_pretrained(self.model_path)
