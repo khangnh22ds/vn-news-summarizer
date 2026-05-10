@@ -58,12 +58,13 @@ class Settings(BaseSettings):
 
     # ---- Inference ------------------------------------------------------
     model_path: str = Field(
-        default="Gthgfuiss123/vit5-news-vi-lora-v2",
+        default="./models/vit5-news-v2",
         description=(
             "Where ``ViT5Summarizer`` should load weights from. Accepts a "
-            "local checkpoint dir, a HF Hub adapter repo id, or a base "
-            "model id like ``VietAI/vit5-base`` (useful for CI / smoke "
-            "tests where pulling the private adapter is overkill)."
+            "local LoRA adapter directory (default — see "
+            "``scripts/bootstrap_model.sh``), a HF Hub adapter repo id "
+            "(e.g. ``Gthgfuiss123/vit5-news-vi-lora-v2``; needs "
+            "``HF_TOKEN``), or a base model id like ``VietAI/vit5-base``."
         ),
     )
     enable_llm_fallback: bool = Field(default=True)
