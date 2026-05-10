@@ -7,6 +7,7 @@
 **Notebook:** [`notebooks/finetune_vit5_lora.ipynb`](../notebooks/finetune_vit5_lora.ipynb)
 **Hardware:** Colab free-tier T4 (16 GB)
 **Dataset:** v2, deterministic 80/10/10 split (1636 train / 218 val / 216 test) of the QC-passed Gemini 2.5 Pro labels — see [`labeling_v2_report.md`](labeling_v2_report.md).
+**Adapter on HF Hub:** [`Gthgfuiss123/vit5-news-vi-lora-v2`](https://huggingface.co/Gthgfuiss123/vit5-news-vi-lora-v2) (private). The repo holds only the inference-time files (adapter weights, adapter config, tokenizer) — ~7 MB — and a model card mirroring this report. Optimizer / scheduler / RNG state from the training-time checkpoint were intentionally not uploaded.
 
 ## Test-set metrics (n = 216)
 
@@ -81,5 +82,5 @@ A 0.38 ROUGE-L means the fine-tuned ViT5 covers a substantial fraction of Pro's 
 1. **Run the ViT5 BERTScore pass** (notebook section 6, third command) on the saved checkpoint to fill the missing cell in the headline table. This is the only number still pending.
 2. **Manual faithfulness spot-check** of 20 generated summaries from the test split, comparing each ViT5 output against (a) the source article and (b) the Pro reference. The hypothesis from the extractive-bias finding is that ViT5 is producing *meaningfully abstractive* summaries that ROUGE penalises but a human would judge correct; this spot-check tests that. If any output hallucinates against the source, file a follow-up training ticket to weight QC-stricter examples higher.
 3. **Dataset v3 with abstractive prompting.** Change the labeling prompt to require paraphrase (no spans longer than ~5 tokens copied verbatim from the source) and re-run labeling on the same 2 418 articles. Expected outcomes: lower ROUGE-1/2 against the new reference (because the reference itself becomes paraphrastic), but a closer ranking between extractive baselines and the fine-tuned ViT5 — which is the metric we actually care about for an abstractive summariser.
-4. **Push the LoRA adapter** (`models/vit5-news-v2/checkpoint-309`) to a HF Hub repo so the inference service in TICKET-006 can pull it without a manual file copy.
+4. ~~Push the LoRA adapter to a HF Hub repo~~ — **done**: the adapter is published as [`Gthgfuiss123/vit5-news-vi-lora-v2`](https://huggingface.co/Gthgfuiss123/vit5-news-vi-lora-v2) (private), and `vn_news_inference.ViT5Summarizer` now accepts that repo id directly via the new HF-Hub branch in `packages/inference/src/vn_news_inference/finetune_loader.py`.
 5. Decide whether to retrain with full FT (Colab Pro A100) before TICKET-006, or to ship the current LoRA adapter and revisit if user feedback flags quality issues. Given the headline number is ~2 ROUGE-L points off literature, **shipping the current adapter and revisiting on a v3 dataset run is the recommended path**.

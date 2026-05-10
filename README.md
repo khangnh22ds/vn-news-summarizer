@@ -5,8 +5,13 @@
 > Gemini), fine-tune a smaller model (`VietAI/vit5-base`), and serve
 > daily summaries through a FastAPI + Next.js web app.
 
-**Status:** Phase 0 complete (this scaffold). Phase 1 (crawler + DB) is
-the next ticket. See [`docs/roadmap.md`](docs/roadmap.md).
+**Status:** Phase 4 complete — labeling pipeline (2 070 / 2 412 = 85.8 %
+QC pass on Gemini 2.5 Pro), ViT5-base + LoRA fine-tune (test ROUGE-L
+0.3804, see [`docs/training_v2_report.md`](docs/training_v2_report.md)),
+and the resulting LoRA adapter is published as a private HF Hub repo at
+[`Gthgfuiss123/vit5-news-vi-lora-v2`](https://huggingface.co/Gthgfuiss123/vit5-news-vi-lora-v2).
+Phase 5 (FastAPI + Next.js web UI) is the next ticket. See
+[`docs/roadmap.md`](docs/roadmap.md).
 
 ---
 
@@ -100,6 +105,26 @@ make web         # Phase 5
 ```
 
 See [`docs/roadmap.md`](docs/roadmap.md) for what each phase delivers.
+
+## Loading the trained adapter
+
+Once Phase 4 has been run (or for downstream users skipping training),
+the resulting LoRA adapter can be loaded straight from the HF Hub:
+
+```python
+from vn_news_inference import DEFAULT_HF_REPO, ViT5Summarizer
+
+# DEFAULT_HF_REPO == "Gthgfuiss123/vit5-news-vi-lora-v2" (private).
+# Make sure HF_TOKEN is set with read access, or run `huggingface-cli login`.
+summarizer = ViT5Summarizer(DEFAULT_HF_REPO)
+print(summarizer.summarize("<your Vietnamese article body here>"))
+```
+
+The same loader also accepts a local checkpoint directory (e.g.
+`models/vit5-news-v2/checkpoint-309`) or a base-model id like
+`VietAI/vit5-base`; see
+[`packages/inference/src/vn_news_inference/finetune_loader.py`](packages/inference/src/vn_news_inference/finetune_loader.py)
+for the full layout precedence.
 
 ## Configuration
 

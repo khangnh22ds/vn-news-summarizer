@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 
 import pytest
-from vn_news_inference import GenerationConfig, ViT5Summarizer
+from vn_news_inference import DEFAULT_HF_REPO, GenerationConfig, ViT5Summarizer
 from vn_news_inference.finetune_loader import (
     _is_adapter_dir,
     _read_base_model_from_adapter,
+    _try_fetch_hub_adapter_config,
 )
 
 
@@ -161,3 +164,52 @@ def test_summarize_batch_all_empty_skips_model(tmp_path: Path) -> None:
     assert out == ["", "", ""]
     # Model never called.
     assert fake_model.calls == []
+
+
+def test_default_hf_repo_is_a_namespaced_id() -> None:
+    """The constant must be a ``namespace/name`` Hub id, not a local path."""
+    assert "/" in DEFAULT_HF_REPO
+    assert not Path(DEFAULT_HF_REPO).exists()
+
+
+def _install_fake_huggingface_hub(
+    monkeypatch: pytest.MonkeyPatch,
+    download_impl: object,
+) -> None:
+    """Replace ``huggingface_hub`` in ``sys.modules`` with a stub so that
+    ``importlib.import_module("huggingface_hub")`` inside the loader
+    returns our test double instead of touching the network."""
+    fake = types.ModuleType("huggingface_hub")
+    fake.hf_hub_download = download_impl  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake)
+
+
+def test_try_fetch_hub_adapter_config_returns_none_on_network_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Network / auth failures must surface as ``None`` so the caller can
+    fall back to the full-model branch instead of crashing."""
+
+    def _boom(repo_id: str, filename: str) -> str:
+        del repo_id, filename
+        raise RuntimeError("simulated 401 / 404 from the hub")
+
+    _install_fake_huggingface_hub(monkeypatch, _boom)
+    assert _try_fetch_hub_adapter_config("user/some-repo") is None
+
+
+def test_try_fetch_hub_adapter_config_returns_path_when_available(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Happy-path: the helper returns the local path the hub mirrored to."""
+    fake_local = tmp_path / "adapter_config.json"
+    fake_local.write_text(json.dumps({"base_model_name_or_path": "VietAI/vit5-base"}))
+
+    def _ok(repo_id: str, filename: str) -> str:
+        del repo_id
+        assert filename == "adapter_config.json"
+        return str(fake_local)
+
+    _install_fake_huggingface_hub(monkeypatch, _ok)
+    out = _try_fetch_hub_adapter_config("user/some-repo")
+    assert out == fake_local
