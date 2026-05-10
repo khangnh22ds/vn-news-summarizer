@@ -1,15 +1,20 @@
 """Load a fine-tuned ViT5 (+ optional LoRA adapter) for inference.
 
-Supports three layouts under ``model_path``:
+Supports four layouts under ``model_path``:
 
-1. **Full model** — directly loadable with ``AutoModelForSeq2SeqLM``
-   (i.e. you ran a full fine-tune or merged LoRA into the base weights).
-2. **LoRA adapter only** — directory contains an ``adapter_config.json``;
+1. **Local full model directory** — directly loadable with
+   ``AutoModelForSeq2SeqLM`` (i.e. you ran a full fine-tune or merged
+   LoRA into the base weights).
+2. **Local LoRA adapter directory** — contains an ``adapter_config.json``;
    we load the base model from ``adapter_config.base_model_name_or_path``
    and attach the adapter via PEFT.
-3. **Base model name** — passing e.g. ``VietAI/vit5-base`` skips PEFT
-   entirely and just runs the off-the-shelf model (useful as a sanity
-   baseline against the extractive ones).
+3. **HF Hub adapter repo id** — e.g. ``DEFAULT_HF_REPO`` below. We
+   download the adapter_config (handles auth via ``HF_TOKEN``) to read
+   the base model name, then load ``PeftModel.from_pretrained(base,
+   repo_id)``.
+4. **Base model name / Hub full-model id** — passing e.g.
+   ``VietAI/vit5-base`` skips PEFT entirely and just runs the
+   off-the-shelf model (useful as a sanity baseline).
 """
 
 from __future__ import annotations
@@ -21,6 +26,14 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+DEFAULT_HF_REPO = "Gthgfuiss123/vit5-news-vi-lora-v2"
+"""Hub repo holding the v2 LoRA adapter trained on dataset v2.
+
+The repo is private; pass an ``HF_TOKEN`` env var with read access (or
+use ``huggingface-cli login``) to load it. See
+``docs/training_v2_report.md`` for the full provenance.
+"""
 
 
 @dataclass(slots=True)
@@ -51,6 +64,28 @@ def _read_base_model_from_adapter(path: Path) -> str:
         msg = f"adapter_config.json at {path} is missing base_model_name_or_path"
         raise ValueError(msg)
     return str(base)
+
+
+def _try_fetch_hub_adapter_config(repo_id: str) -> Path | None:
+    """Return a local path to ``adapter_config.json`` if ``repo_id`` is an HF
+    Hub adapter repo, else ``None``.
+
+    Used to disambiguate between an adapter-only Hub repo (load via PEFT)
+    and a full-model Hub repo (load via ``AutoModelForSeq2SeqLM``).
+    Network errors and auth failures are swallowed and surfaced as
+    ``None`` so the caller falls back to the full-model branch and gives
+    a more useful downstream error.
+    """
+    try:
+        hub = importlib.import_module("huggingface_hub")
+    except ImportError:
+        return None
+    try:
+        local = hub.hf_hub_download(repo_id=repo_id, filename="adapter_config.json")
+    except Exception as exc:
+        logger.debug("adapter_config.json not found on hub for {}: {}", repo_id, exc)
+        return None
+    return Path(local)
 
 
 class ViT5Summarizer:
@@ -87,6 +122,19 @@ class ViT5Summarizer:
             self._model = peft_mod.PeftModel.from_pretrained(base, str(target))
             tok_path = str(target if (target / "tokenizer.json").exists() else base_name)
             self._tokenizer = transformers_mod.AutoTokenizer.from_pretrained(tok_path)
+        elif not target.exists() and (
+            adapter_cfg := _try_fetch_hub_adapter_config(self.model_path)
+        ):
+            base_name = _read_base_model_from_adapter(adapter_cfg.parent)
+            logger.info(
+                "loading base model {} + LoRA adapter from hub repo {}",
+                base_name,
+                self.model_path,
+            )
+            base = transformers_mod.AutoModelForSeq2SeqLM.from_pretrained(base_name)
+            peft_mod = importlib.import_module("peft")
+            self._model = peft_mod.PeftModel.from_pretrained(base, self.model_path)
+            self._tokenizer = transformers_mod.AutoTokenizer.from_pretrained(self.model_path)
         else:
             logger.info("loading model + tokenizer from {}", self.model_path)
             self._model = transformers_mod.AutoModelForSeq2SeqLM.from_pretrained(self.model_path)

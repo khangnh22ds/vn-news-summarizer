@@ -6,10 +6,11 @@ serving + Vertex fallback path on top.
 
 from __future__ import annotations
 
-from .finetune_loader import GenerationConfig, ViT5Summarizer
+from .finetune_loader import DEFAULT_HF_REPO, GenerationConfig, ViT5Summarizer
 
 __version__ = "0.1.0"
 __all__ = [
+    "DEFAULT_HF_REPO",
     "GenerationConfig",
     "ViT5Summarizer",
     "__version__",
