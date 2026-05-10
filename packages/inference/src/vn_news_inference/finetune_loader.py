@@ -139,12 +139,19 @@ class ViT5Summarizer:
             # to the base model's tokenizer when the repo doesn't provide
             # one. We attempt the repo first since users can choose to
             # ship a tokenizer alongside the adapter (as we do for v2).
+            #
+            # ``OSError`` covers "tokenizer files missing"; other exception
+            # types can come from format-mismatched tokenizer.json files
+            # saved with an older transformers version (we have observed
+            # ``TypeError`` here). LoRA never alters the vocab, so the
+            # base model tokenizer is always a safe fallback.
             try:
                 self._tokenizer = transformers_mod.AutoTokenizer.from_pretrained(self.model_path)
-            except OSError:
+            except (OSError, ValueError, TypeError) as exc:
                 logger.info(
-                    "no tokenizer in hub repo {}, falling back to base model {}",
+                    "tokenizer load from hub repo {} failed ({}); falling back to base model {}",
                     self.model_path,
+                    type(exc).__name__,
                     base_name,
                 )
                 self._tokenizer = transformers_mod.AutoTokenizer.from_pretrained(base_name)

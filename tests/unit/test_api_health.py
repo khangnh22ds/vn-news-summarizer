@@ -22,3 +22,11 @@ def test_root() -> None:
     body = res.json()
     assert body["name"] == "vn-news-summarizer"
     assert body["health"] == "/healthz"
+    assert body["summarize"].startswith("POST")
+
+
+def test_healthz_includes_model_id() -> None:
+    client = TestClient(app)
+    body = client.get("/healthz").json()
+    assert "model_id" in body
+    assert body["model_id"]  # non-empty string

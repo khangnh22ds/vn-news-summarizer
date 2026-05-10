@@ -48,10 +48,27 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8000)
     api_log_level: Literal["debug", "info", "warning", "error"] = "info"
     admin_token: str = Field(default="change-me")
+    api_cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000"],
+        description=(
+            "Allowed CORS origins for the FastAPI app. The Next.js dev "
+            "server runs on :3000 by default; override per-deployment."
+        ),
+    )
 
     # ---- Inference ------------------------------------------------------
-    model_path: str = Field(default="./models/vit5-news-v1")
+    model_path: str = Field(
+        default="Gthgfuiss123/vit5-news-vi-lora-v2",
+        description=(
+            "Where ``ViT5Summarizer`` should load weights from. Accepts a "
+            "local checkpoint dir, a HF Hub adapter repo id, or a base "
+            "model id like ``VietAI/vit5-base`` (useful for CI / smoke "
+            "tests where pulling the private adapter is overkill)."
+        ),
+    )
     enable_llm_fallback: bool = Field(default=True)
+    summarize_url_timeout_seconds: float = Field(default=20.0, ge=1.0, le=120.0)
+    summarize_max_input_chars: int = Field(default=20_000, ge=100)
 
     # ---- MLflow ---------------------------------------------------------
     mlflow_tracking_uri: str = Field(default="file:./mlruns")
