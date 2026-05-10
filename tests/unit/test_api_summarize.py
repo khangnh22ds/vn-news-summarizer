@@ -144,11 +144,15 @@ def test_summarize_truncates_long_input(
 
     reset_settings()
     monkeypatch.setenv("SUMMARIZE_MAX_INPUT_CHARS", "100")
-    cap = get_settings().summarize_max_input_chars
-    body = "x" * (cap + 500)
-    res = tc.post("/summarize", json={"text": body})
-    assert res.status_code == 200
-    assert fake.last_input is not None
-    assert len(fake.last_input) == cap
-
-    reset_settings()
+    try:
+        cap = get_settings().summarize_max_input_chars
+        body = "x" * (cap + 500)
+        res = tc.post("/summarize", json={"text": body})
+        assert res.status_code == 200
+        assert fake.last_input is not None
+        assert len(fake.last_input) == cap
+    finally:
+        # Ensure the module-level settings cache is dropped even when an
+        # assertion above fails, otherwise the stale low char limit leaks
+        # into subsequent tests.
+        reset_settings()
