@@ -1,19 +1,37 @@
-# apps/web — Next.js frontend (placeholder)
+# apps/web — vn-news-summarizer frontend
 
-This directory is intentionally empty until **Phase 5 / TICKET-007**.
+Next.js 14 (App Router, TypeScript, Tailwind) UI for the FastAPI backend
+in [`packages/api`](../../packages/api). Single page with a URL/text
+toggle that POSTs to `/summarize` and renders the model output plus
+metadata (model id, char counts, latency).
 
-When ready, scaffold here with:
-
-```bash
-cd apps/web
-npx create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias "@/*"
-```
-
-Then:
+## Local dev
 
 ```bash
-npx shadcn@latest init
+# 1. install deps (one-off)
+cd apps/web && npm install
+
+# 2. point at the backend (defaults to http://localhost:8000)
+cp .env.example .env.local
+
+# 3. run
+npm run dev          # http://localhost:3000
 ```
 
-The frontend will consume the FastAPI backend at `NEXT_PUBLIC_API_BASE_URL`
-(see `.env.example`).
+In a second terminal start the backend:
+
+```bash
+make api             # uvicorn vn_news_api.app:app --reload --port 8000
+```
+
+For smoke tests against an HF Hub-hosted adapter you need
+`HF_TOKEN` exported (the default `MODEL_PATH` is the private
+`Gthgfuiss123/vit5-news-vi-lora-v2` repo). To skip the model download
+entirely, set `MODEL_PATH=VietAI/vit5-base` in `.env`.
+
+## Build / lint
+
+```bash
+npm run lint
+npm run build
+```
